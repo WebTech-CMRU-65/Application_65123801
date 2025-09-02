@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "74844177707",
+    "project_id": "confiress",
+    "storage_bucket": "confiress.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:74844177707:android:a9dbd2c919b0171f99716e",
+        "android_client_info": {
+          "package_name": "com.example.confire"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABsnIqHdIK2f3vInrW7_IRj2U0bzer8fk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
