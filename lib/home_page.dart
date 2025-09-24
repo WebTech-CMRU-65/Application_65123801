@@ -1,276 +1,270 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'auth_service.dart';
-import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 
-class HomePage extends StatelessWidget {
-  HomePage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
-  final _authService = AuthService();
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
 
-  String _formatCreatedAt(dynamic value) {
-    try {
-      DateTime? dt;
-      if (value is Timestamp) {
-        dt = value.toDate();
-      } else if (value is DateTime) {
-        dt = value;
-      } else if (value is String) {
-        dt = DateTime.tryParse(value);
-      }
-      if (dt == null) return '-';
-      return DateFormat('d MMM y HH:mm', 'th').format(dt.toLocal());
-    } catch (_) {
-      return '-';
-    }
-  }
+class _HomePageState extends State<HomePage> {
+  final user = FirebaseAuth.instance.currentUser!;
+  DateTime focusedDay = DateTime.now();
+  DateTime selectedDay = DateTime.now();
+  final TextEditingController _taskController = TextEditingController();
+
+  // Firestore reference
+  CollectionReference get taskRef => FirebaseFirestore.instance
+      .collection("users")
+      .doc(user.uid)
+      .collection("tasks");
 
   @override
   Widget build(BuildContext context) {
-    final user = _auth.currentUser;
-    final colorScheme = Theme.of(context).colorScheme;
+    // normalize วัน
+    final startOfDay = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+    );
+    final endOfDay = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+      23,
+      59,
+      59,
+    );
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF6D83F2), Color(0xFF8E54E9)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.track_changes),
+            onPressed: () {
+              Navigator.pushNamed(context, '/habit-tracker');
+            },
+            tooltip: 'Habit Tracker',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+          ),
+        ],
       ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('หน้าหลัก'),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              onPressed: () async {
-                await _authService.signOut();
-              },
-              icon: const Icon(Icons.logout),
-              tooltip: 'Sign out',
-            ),
-          ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0FB5AE), Color(0xFF60D6CB), Color(0xFFB3F0EA)],
+          ),
         ),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Card(
-                elevation: 10,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 28,
-                            backgroundColor: colorScheme.primary.withOpacity(
-                              0.15,
-                            ),
-                            child: Text(
-                              (user?.displayName?.isNotEmpty == true
-                                      ? user!.displayName!.characters.first
-                                      : (user?.email?.characters.first ?? '?'))
-                                  .toUpperCase(),
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user?.displayName ?? 'ผู้ใช้งาน',
-                                  style: Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  user?.email ?? '-',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: Colors.black54),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (user?.emailVerified == true)
-                            Chip(
-                              label: const Text('Verified'),
-                              avatar: const Icon(
-                                Icons.verified,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              backgroundColor: Colors.green,
-                              labelStyle: const TextStyle(color: Colors.white),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                            )
-                          else
-                            Chip(
-                              label: const Text('Unverified'),
-                              avatar: const Icon(
-                                Icons.mark_email_unread,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              backgroundColor: Colors.orange,
-                              labelStyle: const TextStyle(color: Colors.white),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                            ),
-                        ],
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                children: [
+                  // 📅 Calendar
+                  TableCalendar(
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: focusedDay,
+                    selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+                    onDaySelected: (selected, focused) {
+                      setState(() {
+                        selectedDay = selected;
+                        focusedDay = focused;
+                      });
+                    },
+                    calendarStyle: const CalendarStyle(
+                      todayDecoration: BoxDecoration(
+                        color: Color(0xFF60D6CB),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 16),
-                      const Divider(height: 1),
-                      const SizedBox(height: 16),
-                      if (user != null)
-                        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                          stream: _firestore
-                              .collection('users')
-                              .doc(user.uid)
-                              .snapshots(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            if (!snapshot.hasData || !snapshot.data!.exists) {
-                              return _InfoSection(
-                                title: 'โปรไฟล์',
-                                children: const [
-                                  _InfoRow(label: 'Display name', value: '-'),
-                                  _InfoRow(label: 'Created at', value: '-'),
-                                ],
-                              );
-                            }
-                            final data = snapshot.data!.data() ?? {};
-                            final createdAt = _formatCreatedAt(
-                              data['createdAt'],
-                            );
-                            return _InfoSection(
-                              title: 'โปรไฟล์',
-                              children: [
-                                _InfoRow(
-                                  label: 'Display name',
-                                  value: (data['displayName'] ?? '-') as String,
+                      selectedDecoration: BoxDecoration(
+                        color: Color(0xFF0FB5AE),
+                        shape: BoxShape.circle,
+                      ),
+                      todayTextStyle: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      selectedTextStyle: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    headerStyle: const HeaderStyle(
+                      formatButtonVisible: false,
+                      titleCentered: true,
+                      titleTextStyle: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0A3D62),
+                      ),
+                      leftChevronIcon: Icon(
+                        Icons.chevron_left,
+                        color: Color(0xFF0A3D62),
+                      ),
+                      rightChevronIcon: Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFF0A3D62),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ✅ ToDo List
+                  Expanded(
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: taskRef
+                          .where(
+                            "date",
+                            isGreaterThanOrEqualTo: Timestamp.fromDate(
+                              startOfDay,
+                            ),
+                          )
+                          .where(
+                            "date",
+                            isLessThanOrEqualTo: Timestamp.fromDate(endOfDay),
+                          )
+                          .orderBy("date")
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text("เกิดข้อผิดพลาด: ${snapshot.error}"),
+                          );
+                        }
+
+                        final docs = snapshot.data?.docs ?? [];
+                        if (docs.isEmpty) {
+                          return const Center(
+                            child: Text("ยังไม่มีงานในวันนี้"),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: docs.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, color: Colors.grey),
+                          itemBuilder: (context, index) {
+                            final doc = docs[index];
+                            final data = doc.data() as Map<String, dynamic>;
+                            final done = data["done"] ?? false;
+
+                            return Card(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 4,
+                                horizontal: 4,
+                              ),
+                              child: ListTile(
+                                leading: Checkbox(
+                                  value: done,
+                                  onChanged: (value) {
+                                    doc.reference.update({"done": value});
+                                  },
                                 ),
-                                _InfoRow(label: 'Created at', value: createdAt),
-                              ],
+                                title: Text(
+                                  data["task"] ?? "-",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    decoration: done
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: done ? Colors.grey : Colors.black,
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () => doc.reference.delete(),
+                                ),
+                              ),
                             );
                           },
-                        )
-                      else
-                        const Text('Not signed in'),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 46,
-                        child: FilledButton.icon(
-                          onPressed: () async {
-                            await _authService.signOut();
-                          },
-                          icon: const Icon(Icons.logout),
-                          label: const Text('ออกจากระบบ'),
-                          style: ButtonStyle(
-                            shape: WidgetStatePropertyAll(
-                              RoundedRectangleBorder(
+                        );
+                      },
+                    ),
+                  ),
+
+                  // ➕ Add Task
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _taskController,
+                            decoration: InputDecoration(
+                              hintText:
+                                  "เพิ่มงานใหม่สำหรับ ${selectedDay.toLocal().toString().split(' ')[0]}",
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            backgroundColor: const Color(0xFF0FB5AE),
+                          ),
+                          onPressed: () async {
+                            if (_taskController.text.isNotEmpty) {
+                              await taskRef.add({
+                                "task": _taskController.text,
+                                "createdAt": FieldValue.serverTimestamp(),
+                                "date": Timestamp.fromDate(startOfDay),
+                                "done": false,
+                              });
+                              _taskController.clear();
+                            }
+                          },
+                          child: const Text(
+                            "เพิ่ม",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.title, required this.children});
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 10),
-        ...children,
-      ],
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Text(value),
-            ),
-          ),
-        ],
       ),
     );
   }

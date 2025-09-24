@@ -8,6 +8,7 @@ import 'auth_service.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 import 'home_page.dart';
+import 'habit_tracker_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 Future<void> main() async {
@@ -33,6 +34,10 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('th', ''), Locale('en', '')],
       home: const AuthGate(),
+      routes: {
+        '/home': (context) => const HomePage(),
+        '/habit-tracker': (context) => const HabitTrackerPage(),
+      },
     );
   }
 }
@@ -66,7 +71,7 @@ class _AuthGateState extends State<AuthGate> {
               ? RegisterPage(onGoToLogin: _toggle)
               : LoginPage(onGoToRegister: _toggle);
         }
-        return HomePage();
+        return const HomePage();
       },
     );
   }
