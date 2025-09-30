@@ -9,6 +9,7 @@ import 'login_page.dart';
 import 'register_page.dart';
 import 'home_page.dart';
 import 'habit_tracker_page.dart';
+import 'profile_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 Future<void> main() async {
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => const HomePage(),
         '/habit-tracker': (context) => const HabitTrackerPage(),
+        '/profile': (context) => const ProfilePage(),
       },
     );
   }

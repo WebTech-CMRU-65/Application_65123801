@@ -44,6 +44,13 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Home'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person),
+            onPressed: () {
+              Navigator.pushNamed(context, '/profile');
+            },
+            tooltip: 'โปรไฟล์',
+          ),
+          IconButton(
             icon: const Icon(Icons.track_changes),
             onPressed: () {
               Navigator.pushNamed(context, '/habit-tracker');
